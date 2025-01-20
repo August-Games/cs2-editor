@@ -402,71 +402,81 @@ public class CS2Compiler {
     private void compileExpression(ExpressionNode expression, boolean pop) {
         //Most expressions ignore the popable flag, and just assert what is expected. for example this makes it so int1 = int2 = 5 is not supported yet
         if (expression instanceof CallExpressionNode) {
-            CallExpressionNode call = (CallExpressionNode) expression;
-            boolean constant = false;
+            try {
+                CallExpressionNode call = (CallExpressionNode) expression;
+                boolean constant = false;
 
-            int op = call.info.id;
-            for (ExpressionNode arg : call.arguments) {
-                if (arg instanceof VariableLoadNode) {
-                    //Special argument. this is not an actual argument
-                    VariableLoadNode loadArg = (VariableLoadNode) arg;
-                    if (loadArg.getVariable() == LocalVariable._CHILD) {
-                        constant = true;
-                        continue;
+                int op = call.info.id;
+                for (ExpressionNode arg : call.arguments) {
+                    if (arg instanceof VariableLoadNode) {
+                        //Special argument. this is not an actual argument
+                        VariableLoadNode loadArg = (VariableLoadNode) arg;
+                        if (loadArg.getVariable() == LocalVariable._CHILD) {
+                            constant = true;
+                            continue;
+                        }
+                        if (loadArg.getVariable() == LocalVariable.CHILD) {
+                            continue;
+                        }
                     }
-                    if (loadArg.getVariable() == LocalVariable.CHILD) {
-                        continue;
-                    }
-                }
-                //Arg null means it is fulfilled by another arg which returns multiple values
-                if (arg != null) {
-                    /*if (arg instanceof CallbackExpressionNode && (((CallbackExpressionNode) arg).call == null || ((CallbackExpressionNode) arg).call.info == null)) {
-                        continue;
-                    }*/
-                    compileExpression(arg);
-                }
-            }
-            if (call.info.isScript) {
-                instructions.add(new IntInstruction(Opcodes.CALL_CS2, op));
-            } else {
-                instructions.add(new BooleanInstruction(op, constant));
-            }
-            if (pop) {
-                List<CS2Type> composite = call.getType().composite;
-                for (int i = composite.size() - 1; i >= 0; i--) {
-                    CS2Type ret = composite.get(i);
-                    if (ret.isCompatible(CS2Type.INT)) {
-                        instructions.add(new BooleanInstruction(Opcodes.POP_INT, false));
-                    } else if (ret.isCompatible(CS2Type.STRING)) {
-                        instructions.add(new BooleanInstruction(Opcodes.POP_STRING, false));
-                    } else if (ret.isCompatible(CS2Type.LONG)) {
-                        instructions.add(new IntInstruction(Opcodes.POP_LONG, 0));
+                    //Arg null means it is fulfilled by another arg which returns multiple values
+                    if (arg != null) {
+                        /*if (arg instanceof CallbackExpressionNode && (((CallbackExpressionNode) arg).call == null || ((CallbackExpressionNode) arg).call.info == null)) {
+                            continue;
+                        }*/
+                        compileExpression(arg);
                     }
                 }
+                if (call.info.isScript) {
+                    instructions.add(new IntInstruction(Opcodes.CALL_CS2, op));
+                } else {
+                    instructions.add(new BooleanInstruction(op, constant));
+                }
+                if (pop) {
+                    List<CS2Type> composite = call.getType().composite;
+                    for (int i = composite.size() - 1; i >= 0; i--) {
+                        CS2Type ret = composite.get(i);
+                        if (ret.isCompatible(CS2Type.INT)) {
+                            instructions.add(new BooleanInstruction(Opcodes.POP_INT, false));
+                        } else if (ret.isCompatible(CS2Type.STRING)) {
+                            instructions.add(new BooleanInstruction(Opcodes.POP_STRING, false));
+                        } else if (ret.isCompatible(CS2Type.LONG)) {
+                            instructions.add(new IntInstruction(Opcodes.POP_LONG, 0));
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                System.err.println("Error compiling CallExpressionNode expression:\n" + expression);
+                throw e;
             }
         } else if (expression instanceof CallbackExpressionNode) {
             assert !pop : "Not a statement " + expression;
-            CallbackExpressionNode callback = (CallbackExpressionNode) expression;
-            StringBuilder types = new StringBuilder();
-            if (callback.call == null) {
-                instructions.add(new IntInstruction(Opcodes.PUSH_INT, -1));
-            } else {
-                instructions.add(new IntInstruction(Opcodes.PUSH_INT, callback.call.info.id));
-                for (ExpressionNode arg : callback.call.arguments) {
-                    compileExpression(arg);
-                    //Multiple return value call might be used as an argument
-                    for (CS2Type carg : arg.getType().composite) {
-                        types.append(carg.charDesc);
+            try {
+                CallbackExpressionNode callback = (CallbackExpressionNode) expression;
+                StringBuilder types = new StringBuilder();
+                if (callback.call == null) {
+                    instructions.add(new IntInstruction(Opcodes.PUSH_INT, -1));
+                } else {
+                    instructions.add(new IntInstruction(Opcodes.PUSH_INT, callback.call.info.id));
+                    for (ExpressionNode arg : callback.call.arguments) {
+                        compileExpression(arg);
+                        //Multiple return value call might be used as an argument
+                        for (CS2Type carg : arg.getType().composite) {
+                            types.append(carg.charDesc);
+                        }
                     }
                 }
-            }
-            if (callback.trigger != null) {
-                compileExpression(callback.trigger);
-                instructions.add(new IntInstruction(Opcodes.PUSH_INT, callback.trigger.arguments.size()));
-                types.append("Y");
-            }
+                if (callback.trigger != null) {
+                    compileExpression(callback.trigger);
+                    instructions.add(new IntInstruction(Opcodes.PUSH_INT, callback.trigger.arguments.size()));
+                    types.append("Y");
+                }
 
-            instructions.add(new StringInstruction(Opcodes.PUSH_STRING, types.toString()));
+                instructions.add(new StringInstruction(Opcodes.PUSH_STRING, types.toString()));
+            } catch (Exception e) {
+                System.err.println("Error compiling CallbackExpressionNode expression:\n" + expression);
+                throw e;
+            }
         } else if (expression instanceof ExpressionList) {
 //            assert !pop : "Not a statement " + expression;
             for (ExpressionNode sub : ((ExpressionList) expression).arguments) {
@@ -474,20 +484,26 @@ public class CS2Compiler {
             }
         } else if (expression instanceof MathExpressionNode) {
             assert !pop : "Not a statement " + expression;
-            MathExpressionNode math = (MathExpressionNode) expression;
-            if (math.operator == Operator.DIV && math.getLeft() instanceof MathExpressionNode && ((MathExpressionNode) math.getLeft()).operator == Operator.MUL) {
-                //Optimization for MULDIV opcode 4018 ('scale')
-                MathExpressionNode left = (MathExpressionNode) math.getLeft();
-                compileExpression(left.getLeft());
-                compileExpression(math.getRight());
-                compileExpression(left.getRight());
-                instructions.add(new BooleanInstruction(4018, false));
-            } else {
-                //Normal math
-                compileExpression(math.getLeft());
-                compileExpression(math.getRight());
-                int op = math.operator == Operator.REM ? 4011 : 4000 + math.operator.ordinal();
-                instructions.add(new BooleanInstruction(op, false));
+            try {
+                MathExpressionNode math = (MathExpressionNode) expression;
+                if (math.operator == Operator.DIV && math.getLeft() instanceof MathExpressionNode && ((MathExpressionNode) math.getLeft()).operator == Operator.MUL) {
+                    //Optimization for MULDIV opcode 4018 ('scale')
+                    MathExpressionNode left = (MathExpressionNode) math.getLeft();
+                    compileExpression(left.getLeft());
+                    compileExpression(math.getRight());
+                    compileExpression(left.getRight());
+                    instructions.add(new BooleanInstruction(4018, false));
+                } else {
+                    //Normal math
+                    compileExpression(math.getLeft());
+                    compileExpression(math.getRight());
+                    int op = math.operator == Operator.REM ? 4011 : 4000 + math.operator.ordinal();
+                    instructions.add(new BooleanInstruction(op, false));
+                }
+            } catch (Exception e) {
+                System.err.println("Error compiling MathExpressionNode expression:\n" + expression);
+                CodePrinter.print(expression);
+                throw e;
             }
         } else if (expression instanceof PlaceholderValueNode) {
             assert !pop : "Not a statement " + expression;

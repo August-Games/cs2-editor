@@ -148,7 +148,7 @@ public class CS2Type {
                 throw new DecompilerException("Cannot cast to boolean " + val);
             }*/
             if (val == -1) {
-                System.err.println("warning null boolean");
+//                System.err.println("warning null boolean");
                 return new NullableIntExpressionNode(-1);
 //                throw new DecompilerException("-1 boolean?");
             }

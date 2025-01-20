@@ -53,7 +53,11 @@ public class CallExpressionNode extends ExpressionNode {
             arguments[arguments.length - 1].print(printer);
             printer.print(".");
         }
-        printer.print(info.getName());
+        if (info != null) {
+            printer.print(info.getName());
+        } else {
+            printer.print("???");
+        }
         printer.print('(');
         int max = arguments.length - (invokeOnLastArg ? 1 : 0);
         for (int i = 0; i < max; i++) {
