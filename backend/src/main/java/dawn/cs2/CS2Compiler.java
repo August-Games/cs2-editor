@@ -446,8 +446,9 @@ public class CS2Compiler {
                     }
                 }
             } catch (Exception e) {
-                System.err.println("Error compiling CallExpressionNode expression:\n" + expression);
-                throw e;
+                String message = "Error compiling CallExpressionNode expression:\n" + expression;
+                System.err.println(message);
+                throw new RuntimeException(message + "\n" + e.getMessage(), e);
             }
         } else if (expression instanceof CallbackExpressionNode) {
             assert !pop : "Not a statement " + expression;
@@ -474,8 +475,9 @@ public class CS2Compiler {
 
                 instructions.add(new StringInstruction(Opcodes.PUSH_STRING, types.toString()));
             } catch (Exception e) {
-                System.err.println("Error compiling CallbackExpressionNode expression:\n" + expression);
-                throw e;
+                String message = "Error compiling CallbackExpressionNode expression:\n" + expression;
+                System.err.println(message);
+                throw new RuntimeException(message + "\n" + e.getMessage(), e);
             }
         } else if (expression instanceof ExpressionList) {
 //            assert !pop : "Not a statement " + expression;
@@ -501,9 +503,9 @@ public class CS2Compiler {
                     instructions.add(new BooleanInstruction(op, false));
                 }
             } catch (Exception e) {
-                System.err.println("Error compiling MathExpressionNode expression:\n" + expression);
-                CodePrinter.print(expression);
-                throw e;
+                String message = "Error compiling MathExpressionNode expression:\n" + expression;
+                System.err.println(message);
+                throw new RuntimeException(message + "\n" + e.getMessage(), e);
             }
         } else if (expression instanceof PlaceholderValueNode) {
             assert !pop : "Not a statement " + expression;
